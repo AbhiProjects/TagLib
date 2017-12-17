@@ -1,0 +1,134 @@
+# TagLib-3.1
+
+Original Download Location `https://code.google.com/archive/p/python-taglib/downloads`
+
+Requirements:
+
+    Python-2.6
+    Python Imaging Library (PIL) if you want image support
+
+
+Installing:
+
+    python setup.py build
+    sudo python setup.py install
+
+
+Example usage:
+
+    from taglib import tagopen, InvalidMedia, ValidationError
+
+    # open metadata read-only
+    try:
+        tag = tagopen('somefile.mp3')
+    except InvalidMedia:
+        print 'no decoder found'
+
+    # if you wish to rewrite the tags, open without readonly:
+    tag = tagopen('somefile.mp3', readonly=False)
+
+    # you can pass already-open files to tagopen.  if you open the file
+    # yourself and intend to write in-place, you must open it as 'r+'
+    with open('anotherfile.mp3', 'r+') as fp:
+        tag = tagopen(fp, readonly=False)
+
+    # if you know exactly what decoder you will need, it can be
+    # faster to use it directly.  these objects are never readonly.
+    tag = MP3('somefile.mp3')
+
+    # you can change metadata as a dict or attribute:
+    tag.genre = u'Alternative'
+    tag['year'] = 1974
+
+    # metadata is validated when set:
+    try:
+        tag['year'] = -4
+    except ValidationError, error:
+        # ValidationError: year: out of range of uint16
+
+    # show formatted (default to STDOUT)
+    tag.display(stream=sys.stderr)
+
+    # write new mp3 with update metadata
+    tag.dump('new.mp3')
+
+    # write in-place.
+    tag.name = 'hi'
+    tag.save()
+
+    # get whole thing as a string
+    mp3 = tag.dumps()
+
+    # change the ID3 version
+    tag.save(version=4)
+
+    # show formatted metadata
+    tag.display(stream=sys.stdout)
+
+    # if there are unrecognized tags, they go in _unknown
+    print tag._unknown
+
+    # if you want to preserve unknown tags when you write:
+    tag.save('new.mp3', unknown=True)
+
+    # you can copy metadata from one tag to another:
+    src = tagopen('old.m4a')
+    dst = tagopen('new.mp3', readonly=False)
+    dst.update(src)
+
+    # a tag's repr() shows the set metadata:
+    print repr(tag)
+
+    # for images, you can give it a path, open file, or PIL ImageFile:
+    tag.image = 'someimage.jpg'
+    tag.image = fp
+    tag.image = PIL.Image.open(fp)
+
+    # you can nuke metadata by clearing the dictionary:
+    tag.clear()
+    tag.save('no-metadata.mp3')
+
+    # tagdump script will dump a formatted metadata dispaly:
+    $ tagdump /path/to/mp3s/
+
+
+Notes:
+
+    * Rewriting tags is only supported for MP3 (ID3) formats.
+
+    * Supported formats are M4A (mpeg4), MP3 (id3), FLAC (vorbis),
+      OGG (vorbis), and IFF (wav/aiff).
+
+    * You need to install Python Imaging Library (PIL) for image
+      support.
+
+    * Metadata objects returned by tagopen() behave like a dictionary
+      and implement all related functions.  You may also access the
+      metadata fields as attributes.
+
+    * Access to known fields return None if they are not set (you will
+      never get an AttributeError or KeyError for these fields)
+
+    * When setting metadata attributes, ValidationError is raised if you
+      attempt to set an invalid value.
+
+    * ID3 is not a comprehensive implementation of every available
+      field.  It only supports a subset of tags, namely the ones that
+      iTunes uses to store metadata.  These tags are:
+
+      album, album artist, artist, bpm, comment, compilation, composer, disk, encoder, gapless, genre, grouping, image, lyrics, name, sort album, sort album artist, sort artist, sort composer, sort name, sort video show, track, video description, video episode, video episode id, video season, video show, volume, year,
+
+      ... anything else is stored in _unknown, provided you opened it with
+          readonly=False
+
+
+Contact:
+
+    email: Chris Jones <cjones@gruntle.org>
+    aim: seejayunderscore
+
+
+License:
+
+    BSD
+

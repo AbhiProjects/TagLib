@@ -1,0 +1,19 @@
+Metadata-Version: 1.0
+Name: taglib
+Version: 3.1
+Summary: Library to manipulate audio file metadata
+Home-page: http://code.google.com/p/python-taglib/
+Author: Chris Jones
+Author-email: cjones@gruntle.org
+License: BSD
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Topic :: Multimedia :: Sound/Audio
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
