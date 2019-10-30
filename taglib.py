@@ -36,12 +36,8 @@
 # OGG:    http://en.wikipedia.org/wiki/Ogg#File_format
 # CRC:    http://www.ross.net/crc/download/crc_v3.txt
 
-from __future__ import with_statement
+from __future__ import print_function
 import sys
-
-if sys.hexversion < 0x02060200:
-    print >> sys.stderr, 'Sorry, Python 2.6 is required'
-    sys.exit(0)
 
 from struct import error as StructError, Struct
 from collections import MutableMapping
@@ -49,10 +45,7 @@ from math import log
 import os
 import re
 
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
+from io import BytesIO as StringIO
 
 try:
     from PIL import Image
@@ -74,7 +67,7 @@ ENCODING = sys.getfilesystemencoding()
 BLOCKSIZE = 4096
 
 (DICT, IDICT, TEXT, UINT16, BOOL, UINT16X2,
- GENRE, IMAGE, UINT32, VOLUME) = xrange(10)
+ GENRE, IMAGE, UINT32, VOLUME) = range(10)
 
 TYPES = {'_comment': DICT,
          '_image': IDICT,
@@ -175,7 +168,7 @@ GENRES = ['Blues', 'Classic Rock', 'Country', 'Dance', 'Disco', 'Funk',
           'Christian Rock', 'Merengue', 'Salsa', 'Thrash Metal', 'Anime',
           'JPop', 'Synthpop']
 
-BOOLEANS = {True: ['true', 't', 'yes', 'y', 'on', '1', 1, '\x01'],
+BOOLEANS = {True: ['true', 't', 'yes', 'y', 'on', '1', 1, b'\x01'],
             False: ['false', 'f', 'no', 'n', 'off', '0', 0]}
 
 ID3V1_ATTRS = ['name', 'artist', 'album', 'year', 'comment', 'track', 'genre']
@@ -256,13 +249,13 @@ ID3V2_OPTS = {2: {'head': Struct('3s 3s 0s'),
                            'TSOT': 'sort_name',
                            'USLT': '_lyrics'}}}
 
-ID3V2_TAGS = dict((tag, attr) for opts in ID3V2_OPTS.itervalues()
-                  for tag, attr in opts['tags'].iteritems())
+ID3V2_TAGS = dict((tag, attr) for opts in ID3V2_OPTS.values()
+                  for tag, attr in opts['tags'].items())
 
-ID3V2_ENCODINGS = {'\x00': ('latin-1', '\x00'),
-                   '\x01': ('utf-16', '\x00\x00'),
-                   '\x02': ('utf-16-be', '\x00\x00'),
-                   '\x03': ('utf-8', '\x00')}
+ID3V2_ENCODINGS = {b'\x00': ('latin-1', b'\x00'),
+                   b'\x01': ('utf-16', b'\x00\x00'),
+                   b'\x02': ('utf-16-be', b'\x00\x00'),
+                   b'\x03': ('utf-8', b'\x00')}
 
 MP3_BITRATES = [
     [32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 0],
@@ -282,41 +275,41 @@ IFFIDS = {'ANNO': 'comment',
           'INAM': 'name',
           'NAME': 'name'}
 
-ATOM_NODE1, ATOM_NODE2, ATOM_DATA = xrange(3)
+ATOM_NODE1, ATOM_NODE2, ATOM_DATA = range(3)
 
-ATOMS = {'moov': (ATOM_NODE1, None),
-         'moov.udta': (ATOM_NODE1, None),
-         'moov.udta.meta': (ATOM_NODE2, None),
-         'moov.udta.meta.ilst': (ATOM_NODE1, None),
-         'moov.udta.meta.ilst.aART': (ATOM_DATA, 'album_artist'),
-         'moov.udta.meta.ilst.covr': (ATOM_DATA, 'image'),
-         'moov.udta.meta.ilst.cpil': (ATOM_DATA, 'compilation'),
-         'moov.udta.meta.ilst.desc': (ATOM_DATA, 'video_description'),
-         'moov.udta.meta.ilst.disk': (ATOM_DATA, 'disk'),
-         'moov.udta.meta.ilst.gnre': (ATOM_DATA, 'genre'),
-         'moov.udta.meta.ilst.pgap': (ATOM_DATA, 'gapless'),
-         'moov.udta.meta.ilst.soaa': (ATOM_DATA, 'sort_album_artist'),
-         'moov.udta.meta.ilst.soal': (ATOM_DATA, 'sort_album'),
-         'moov.udta.meta.ilst.soar': (ATOM_DATA, 'sort_artist'),
-         'moov.udta.meta.ilst.soco': (ATOM_DATA, 'sort_composer'),
-         'moov.udta.meta.ilst.sonm': (ATOM_DATA, 'sort_name'),
-         'moov.udta.meta.ilst.sosn': (ATOM_DATA, 'sort_video_show'),
-         'moov.udta.meta.ilst.tmpo': (ATOM_DATA, 'bpm'),
-         'moov.udta.meta.ilst.trkn': (ATOM_DATA, 'track'),
-         'moov.udta.meta.ilst.tven': (ATOM_DATA, 'video_episode_id'),
-         'moov.udta.meta.ilst.tves': (ATOM_DATA, 'video_episode'),
-         'moov.udta.meta.ilst.tvsh': (ATOM_DATA, 'video_show'),
-         'moov.udta.meta.ilst.tvsn': (ATOM_DATA, 'video_season'),
-         'moov.udta.meta.ilst.\xa9ART': (ATOM_DATA, 'artist'),
-         'moov.udta.meta.ilst.\xa9alb': (ATOM_DATA, 'album'),
-         'moov.udta.meta.ilst.\xa9cmt': (ATOM_DATA, 'comment'),
-         'moov.udta.meta.ilst.\xa9day': (ATOM_DATA, 'year'),
-         'moov.udta.meta.ilst.\xa9gen': (ATOM_DATA, 'genre'),
-         'moov.udta.meta.ilst.\xa9grp': (ATOM_DATA, 'grouping'),
-         'moov.udta.meta.ilst.\xa9lyr': (ATOM_DATA, 'lyrics'),
-         'moov.udta.meta.ilst.\xa9nam': (ATOM_DATA, 'name'),
-         'moov.udta.meta.ilst.\xa9too': (ATOM_DATA, 'encoder'),
-         'moov.udta.meta.ilst.\xa9wrt': (ATOM_DATA, 'composer')}
+ATOMS = {b'moov': (ATOM_NODE1, None),
+         b'moov.udta': (ATOM_NODE1, None),
+         b'moov.udta.meta': (ATOM_NODE2, None),
+         b'moov.udta.meta.ilst': (ATOM_NODE1, None),
+         b'moov.udta.meta.ilst.aART': (ATOM_DATA, 'album_artist'),
+         b'moov.udta.meta.ilst.covr': (ATOM_DATA, 'image'),
+         b'moov.udta.meta.ilst.cpil': (ATOM_DATA, 'compilation'),
+         b'moov.udta.meta.ilst.desc': (ATOM_DATA, 'video_description'),
+         b'moov.udta.meta.ilst.disk': (ATOM_DATA, 'disk'),
+         b'moov.udta.meta.ilst.gnre': (ATOM_DATA, 'genre'),
+         b'moov.udta.meta.ilst.pgap': (ATOM_DATA, 'gapless'),
+         b'moov.udta.meta.ilst.soaa': (ATOM_DATA, 'sort_album_artist'),
+         b'moov.udta.meta.ilst.soal': (ATOM_DATA, 'sort_album'),
+         b'moov.udta.meta.ilst.soar': (ATOM_DATA, 'sort_artist'),
+         b'moov.udta.meta.ilst.soco': (ATOM_DATA, 'sort_composer'),
+         b'moov.udta.meta.ilst.sonm': (ATOM_DATA, 'sort_name'),
+         b'moov.udta.meta.ilst.sosn': (ATOM_DATA, 'sort_video_show'),
+         b'moov.udta.meta.ilst.tmpo': (ATOM_DATA, 'bpm'),
+         b'moov.udta.meta.ilst.trkn': (ATOM_DATA, 'track'),
+         b'moov.udta.meta.ilst.tven': (ATOM_DATA, 'video_episode_id'),
+         b'moov.udta.meta.ilst.tves': (ATOM_DATA, 'video_episode'),
+         b'moov.udta.meta.ilst.tvsh': (ATOM_DATA, 'video_show'),
+         b'moov.udta.meta.ilst.tvsn': (ATOM_DATA, 'video_season'),
+         b'moov.udta.meta.ilst.\xa9ART': (ATOM_DATA, 'artist'),
+         b'moov.udta.meta.ilst.\xa9alb': (ATOM_DATA, 'album'),
+         b'moov.udta.meta.ilst.\xa9cmt': (ATOM_DATA, 'comment'),
+         b'moov.udta.meta.ilst.\xa9day': (ATOM_DATA, 'year'),
+         b'moov.udta.meta.ilst.\xa9gen': (ATOM_DATA, 'genre'),
+         b'moov.udta.meta.ilst.\xa9grp': (ATOM_DATA, 'grouping'),
+         b'moov.udta.meta.ilst.\xa9lyr': (ATOM_DATA, 'lyrics'),
+         b'moov.udta.meta.ilst.\xa9nam': (ATOM_DATA, 'name'),
+         b'moov.udta.meta.ilst.\xa9too': (ATOM_DATA, 'encoder'),
+         b'moov.udta.meta.ilst.\xa9wrt': (ATOM_DATA, 'composer')}
 
 VORBISTAGS = {'album': 'album',
               'album artist': 'album_artist',
@@ -471,7 +464,7 @@ class Container(MutableMapping):
             return cls.validate(val, cls.types[attr])
         except KeyError:
             return val
-        except ValidationError, error:
+        except ValidationError as error:
             error.args = '%s: %s' % (attr, error),
             raise
 
@@ -480,7 +473,7 @@ class Container(MutableMapping):
         if val is not None and type is not None and not isinstance(val, type):
             try:
                 val = type(val)
-            except Exception, error:
+            except Exception as error:
                 raise ValidationError(error)
         return val
 
@@ -583,7 +576,7 @@ class Metadata(Container):
 
     @classmethod
     def compare(cls, x, y):
-        for attr, type in cls.types.iteritems():
+        for attr, type in cls.types.items():
             if type in (DICT, IDICT):
                 continue
             if type == IMAGE:
@@ -607,10 +600,10 @@ class Open(object):
         self.pos = None
 
     def __enter__(self):
-        if isinstance(self.file, basestring):
+        if isinstance(self.file, str):
             self.fp = open(self.file, self.mode)
             self.external = False
-        elif isinstance(self.file, (int, long)):
+        elif isinstance(self.file, int):
             self.fp = os.fdopen(self.file, self.mode)
             self.external = True
         elif hasattr(self.file, 'seek'):
@@ -650,8 +643,8 @@ class Decoder(Metadata):
             self.fp = fp
             try:
                 self.decode()
-            except Errors, error:
-                raise InvalidMedia, error, sys.exc_traceback
+            except Errors as error:
+                raise InvalidMedia
         self.modified = False
 
     def save(self, *args, **kwargs):
@@ -705,35 +698,35 @@ class Decoder(Metadata):
         if type in (DICT, IDICT) and not isinstance(val, dict):
             raise ValidationError('must be a dictionary')
         elif type == GENRE:
-            if isinstance(val, (int, long)):
+            if isinstance(val, int):
                 try:
                     val = GENRES[val]
-                except IndexError, error:
+                except IndexError as error:
                     raise ValidationError(error)
             type = TEXT
-        if type == TEXT and not isinstance(val, basestring):
-            val = str(val)
+        #if type == TEXT and not isinstance(val, basestring):
+        #    val = str(val)
         if type in (TEXT, UINT16, BOOL, UINT16X2, GENRE, UINT32, VOLUME):
-            if isinstance(val, str):
+            if isinstance(val, bytes):
                 val = val.decode('ascii', 'ignore')
-            if isinstance(val, unicode):
+            if isinstance(val, str):
                 val = val.replace('\x00', '').strip()
                 if not val:
                     return
                 if type in (UINT16, UINT32):
                     try:
                         val = int(val)
-                    except ValueError, error:
+                    except ValueError as error:
                         raise ValidationError(error)
                 elif type == VOLUME:
                     try:
                         val = float(val)
-                    except ValueError, error:
+                    except ValueError as error:
                         raise ValidationError(error)
                 elif type == BOOL:
                     val = val.lower()
         if type == BOOL:
-            for bool, vals in BOOLEANS.iteritems():
+            for bool, vals in BOOLEANS.items():
                 if val in vals:
                     val =  bool
                     break
@@ -747,12 +740,12 @@ class Decoder(Metadata):
                     with Open(val, 'rb') as fp:
                         val = Image.open(fp)
                         val.load()
-                except (TypeError, IOError), error:
+                except (TypeError, IOError) as error:
                     raise ValidationError(error)
         elif type in (UINT16, UINT32):
             if isinstance(val, float):
                 val = int(val)
-            elif not isinstance(val, (int, long)):
+            elif not isinstance(val, int):
                 raise ValidationError('must be an integer')
         elif type == VOLUME:
             if isinstance(val, int):
@@ -766,9 +759,9 @@ class Decoder(Metadata):
         if type == UINT16 and (val < 0 or val > 0xffff):
             raise ValidationError('out of range of uint16')
         elif type == UINT16X2:
-            if isinstance(val, (int, long)):
+            if isinstance(val,int):
                 val = val, 0
-            elif isinstance(val, unicode):
+            elif isinstance(val, str):
                 val = val.split('/')
             if isinstance(val, tuple):
                 val = list(val)
@@ -781,12 +774,12 @@ class Decoder(Metadata):
             elif len(val) != 2:
                 raise ValidationError('needs one or two members')
             for i, item in enumerate(val):
-                if isinstance(item, basestring):
+                if isinstance(item, str):
                     try:
                         item = int(item)
                     except ValueError:
                         item = 0
-                elif not isinstance(item, (int, long)):
+                elif not isinstance(item, int):
                     raise ValidationError('each member must be a number')
                 if item < 0:
                     item = 0
@@ -977,7 +970,7 @@ class MP3(Decoder):
         try:
             self.fp.seek(self.id3v1.size * -1, os.SEEK_END)
             tag = self.unpack(self.id3v1)
-            if tag[0] != 'TAG':
+            if tag[0] != b'TAG':
                 raise DecodeError('no id3v1 tag')
             self.hasid3v1 = True
             self.id3v1end = self.fp.tell()
@@ -986,12 +979,12 @@ class MP3(Decoder):
                 self.name, self.artist, self.album, self.year = tag[1:5]
             except ValidationError:
                 pass
-            if tag[5][28] == '\x00' and tag[5][29] != '\x00':
+            if tag[5][28] == b'\x00' and tag[5][29] != b'\x00':
                 self.comment = tag[5][:28]
                 self.track = ord(tag[5][29])
             else:
                 try:
-                    comment, track = self.track_re.search(tag[5]).groups()
+                    comment, track = self.track_re.search(tag[5].decode()).groups()
                     self.comment = comment
                     self.track = ord(track)
                 except AttributeError:
@@ -1009,7 +1002,7 @@ class MP3(Decoder):
         try:
             self.fp.seek(pos, os.SEEK_SET)
             head = self.unpack(self.id3v2head)
-            if head[0] != 'ID3':
+            if head[0] != b'ID3':
                 raise DecodeError('no id3v2 tag')
             try:
                 opts = ID3V2_OPTS[head[1]]
@@ -1020,19 +1013,23 @@ class MP3(Decoder):
             tagsize = self.getint(head[4], syncsafe=True)
             self.id3v2end = pos + self.id3v2head.size + tagsize
             self.id3v2version = head[1]
+
             while tagsize >= opts['head'].size:
+
+
                 tag, size, flags = self.unpack(opts['head'])
-                if not self.tag_re.search(tag):
+                if not self.tag_re.search(tag.decode()):
                     break
                 size = self.getint(size, opts['syncsafe'])
                 tagsize -= (opts['head'].size + size)
                 val = self.fp.read(size)
                 try:
-                    attr = ID3V2_TAGS[tag]
+                    attr = ID3V2_TAGS[tag.decode()]
                 except KeyError:
                     tags = self.__dict__.setdefault('_unknown', {})
                     tags.setdefault(tag, []).append(val)
                     continue
+
                 type = self.types[attr]
                 if type in (BOOL, GENRE, TEXT, UINT16, UINT16X2, UINT32):
                     val = self.getstr(val)
@@ -1060,8 +1057,8 @@ class MP3(Decoder):
                         val = val[3:]
                     else:
                         val = self.splitstr(val, offset=1)[1]
-                    ptype = ord(val[0])
                     key, val = self.splitstr(val[1:], term, offset=1)
+                    ptype=val[0]
                     try:
                         self.set_image(StringIO(val),
                                        self.getstr(ebyte + key), ptype)
@@ -1107,7 +1104,7 @@ class MP3(Decoder):
             sample = self.fp.read(samplesize)
             i = 0
             while True:
-                i = sample.find('\xff', i)
+                i = sample.find(b'\xff', i)
                 if i == -1:
                     raise DecodeError('no mp3 frame found')
                 try:
@@ -1216,15 +1213,15 @@ class MP3(Decoder):
         fp.write('\x00' * padding)
 
     def id3v2frames(self, opts, unknown=False):
-        for tag, attr in opts['tags'].iteritems():
+        for tag, attr in opts['tags'].items():
             val = self[attr]
             if not val:
                 continue
             type = self.types[attr]
             if type == BOOL:
-                val = u'1'
+                val = '1'
             elif type == DICT:
-                for key, val in val.iteritems():
+                for key, val in val.items():
                     lang, key = key
                     key2, val2 = self.mkstr(key), self.mkstr(val, term=False)
                     if key2[0] == val2[0]:
@@ -1237,16 +1234,16 @@ class MP3(Decoder):
                 continue
             elif type == GENRE:
                 try:
-                    val = u'(%d)' % GENRES.index(val)
+                    val = '(%d)' % GENRES.index(val)
                 except ValueError:
                     pass
             elif type == IDICT:
-                for key, val in val.iteritems():
+                for key, val in val.items():
                     key = self.mkstr(key[0])
                     image, ptype = val
-                    if tag == 'PIC':
-                        if image.format == 'JPEG':
-                            fmt = 'JPG'
+                    if tag == b'PIC':
+                        if image.format == b'JPEG':
+                            fmt = b'JPG'
                         else:
                             fmt = image.format[:3]
                     else:
@@ -1259,19 +1256,19 @@ class MP3(Decoder):
             elif type == UINT16:
                 val = unicode(val)
             elif type == UINT16X2:
-                val = u'%d/%d' % tuple(val)
+                val = '%d/%d' % tuple(val)
             elif type == VOLUME:
-                if tag == 'RVA2':
+                if tag == b'RVA2':
                     val = self.int16be.pack(
                             int(log(val / 100 + 1, 10) * 0x2800))
-                    val = '\x00\x01%s%s\x00' % (val, val)
+                    val = b'\x00\x01%s%s\x00' % (val, val)
                 else:
                     if val < 0:
-                        incdec = '\x00'
+                        incdec = b'\x00'
                         val *= -1
                     else:
-                        incdec = '\x03'
-                    val = '%s\x10%s\x00\x00\x00\x00' % (
+                        incdec = b'\x03'
+                    val = b'%s\x10%s\x00\x00\x00\x00' % (
                             incdec,
                             self.uint16be.pack(int(val / 100 * 0xffff)) * 2)
             if isinstance(val, unicode):
@@ -1283,15 +1280,15 @@ class MP3(Decoder):
     def pad(val, size=30):
         if val is None:
             val = ''
-        elif isinstance(val, unicode):
+        elif isinstance(val, str):
             val = val.encode('ascii', 'ignore').strip()
-        elif not isinstance(val, str):
-            val = str(val)
+        elif not isinstance(val, bytes):
+            val = val.decode()
         val = val[:size]
-        return val + '\x00' * (size - len(val))
+        return val + b'\x00' * (size - len(val))
 
     @staticmethod
-    def splitstr(val, term='\x00', offset=0):
+    def splitstr(val, term=b'\x00', offset=0):
         end = len(val)
         tsize = len(term)
         i = 0
@@ -1309,7 +1306,7 @@ class MP3(Decoder):
     @classmethod
     def getint(cls, bytes, syncsafe=False):
         val = cls.uint32be.unpack(
-                '\x00' * (cls.uint32be.size - len(bytes)) + bytes)[0]
+                b'\x00' * (cls.uint32be.size - len(bytes)) + bytes)[0]
         if syncsafe:
             return (((val & 0x0000007f) >> 0) | ((val & 0x00007f00) >> 1) |
                     ((val & 0x007f0000) >> 2) | ((val & 0x7f000000) >> 3) )
@@ -1335,30 +1332,30 @@ class MP3(Decoder):
     @staticmethod
     def mkstr(val, utf16=False, term=True):
         if val is None:
-            val = u''
+            val = ''
         elif isinstance(val, bool):
-            val = u'1' if val else u'0'
+            val = '1' if val else '0'
         if not utf16:
             try:
-                val = '\x00' + val.encode('latin-1')
+                val = b'\x00' + val.encode('latin-1')
                 if term:
-                    val += '\x00'
+                    val += b'\x00'
                 return val
             except UnicodeEncodeError:
                 pass
-        val = '\x01\xff\xfe' + val.encode('utf-16-le')
+        val = b'\x01\xff\xfe' + val.encode('utf-16-le')
         if term:
-            val += '\x00\x00'
+            val += b'\x00\x00'
         return val
 
     @staticmethod
     def getenc(val):
         try:
-            ebyte = val[0]
+            ebyte = val[:1]
             encoding, term = ID3V2_ENCODINGS[ebyte]
             return ebyte, val[1:], encoding, term
         except (IndexError, KeyError):
-            return '', val, 'ascii', '\x00'
+            return b'', val, 'ascii', b'\x00'
 
     @classmethod
     def mp3framelen(cls, bytes):
@@ -1371,11 +1368,11 @@ class MP3(Decoder):
                 else (frame.layer - 1)][frame.bitrate]
         srate = MP3_SRATES[frame.version][frame.srate]
         if frame.layer == 1:
-            return (bitrate * 12000 / srate + frame.padding) << 2
+            return int(bitrate * 12000 / srate + frame.padding) << 2
         else:
             if frame.layer == 3 and frame.version in (0, 2):
                 srate = srate << 1
-            return bitrate * 144000 / srate + frame.padding
+            return int(bitrate * 144000 / srate + frame.padding)
 
     @classmethod
     def decode_mp3frame(cls, val):
@@ -1419,28 +1416,28 @@ class IFF(MP3):
             self.fp.seek(pos, os.SEEK_SET)
             if fmt is None:
                 id = self.fp.read(4)
-                if id == 'RIFF':
+                if id == b'RIFF':
                     fmt = self.riff
-                elif id in ('FORM', 'LIST', 'CAT '):
+                elif id in (b'FORM', b'LIST', b'CAT '):
                     fmt = self.aiff
                 else:
                     raise DecodeError('not an IFF file')
                 continue
             id, size = self.unpack(fmt)
             pos += fmt.size
-            if id in ('RIFF', 'FORM', 'LIST', 'CAT '):
+            if id in (b'RIFF', b'FORM', b'LIST', b'CAT '):
                 self.decode(pos + 4, pos + size, fmt)
             elif id in IFFIDS:
                 try:
                     self[IFFIDS[id]] = self.fp.read(size)
                 except ValidationError:
                     pass
-            elif id == 'ID3 ':
+            elif id == b'ID3 ':
                 try:
                     self.decode_id3v2(pos)
                 except Errors:
                     pass
-            elif id == 'data':
+            elif id == b'data':
                 try:
                     self.decode_mp3(pos)
                 except Errors:
@@ -1468,9 +1465,9 @@ class M4A(Decoder):
             self.fp.seek(pos, os.SEEK_SET)
             size, id = self.unpack(self.head)
             path = base + [id]
-            tag = '.'.join(path)
+            tag = b'.'.join(path)
             if not ftyp:
-                if tag != 'ftyp':
+                if tag != b'ftyp':
                     raise DecodeError('not an mpeg4')
                 ftyp = True
             atom, attr = ATOMS.get(tag, (None, None))
@@ -1519,7 +1516,7 @@ class Vorbis(Decoder):
     def decode(self):
         self.tagstart = self.fp.tell()
         self.encoder = self.getstr()
-        for i in xrange(self.getint()):
+        for i in range(self.getint()):
             tag, val = self.getstr().split('=', 1)
             try:
                 attr = VORBISTAGS[tag.lower().strip()]
@@ -1560,7 +1557,7 @@ class FLAC(Vorbis):
 
     def decode(self):
         self.fp.seek(0, os.SEEK_SET)
-        if self.fp.read(4) != 'fLaC':
+        if self.fp.read(4) != b'fLaC':
             raise DecodeError('not a flac file')
         pos = 4
         self.fp.seek(0, os.SEEK_END)
@@ -1570,7 +1567,7 @@ class FLAC(Vorbis):
             self.fp.seek(pos, os.SEEK_SET)
             head, size = self.unpack(self.head)
             pos += self.head.size
-            size = self.uint32be.unpack('\x00' + size)[0]
+            size = self.uint32be.unpack(b'\x00' + size)[0]
             self.blocks.append((pos, size, head))
             if head & 127 == 4:
                 super(FLAC, self).decode()
@@ -1606,11 +1603,11 @@ class CRC(object):
         self.initial = initial
         self.table = []
         topbit = self.bitmask(self.bits - 1)
-        for index in xrange(256):
+        for index in range(256):
             if reverse:
                 index = self.reflect(index, 8)
             r = index << (self.bits - 8)
-            for i in xrange(8):
+            for i in range(8):
                 if r & topbit:
                     r = (r << 1) ^ poly
                 else:
@@ -1630,7 +1627,7 @@ class CRC(object):
     @classmethod
     def reflect(cls, v, b):
         t = v
-        for i in xrange(b):
+        for i in range(b):
             if t & 1:
                 v |= cls.bitmask((b - 1) - i)
             else:
@@ -1664,7 +1661,7 @@ class OGG(Vorbis):
         while pos < end:
             self.fp.seek(pos, os.SEEK_SET)
             head = self.unpack(self.head)
-            if head[0] != 'OggS':
+            if head[0] != b'OggS':
                 raise DecodeError('not an ogg page')
             table = self.fp.read(head[7])
             pos += self.head.size + head[7]
@@ -1672,13 +1669,13 @@ class OGG(Vorbis):
             packets = [0]
             last = len(table) - 1
             for i, segment in enumerate(table):
-                segment = ord(segment)
+                #segment = ord(segment)
                 packets[-1] += segment
                 if segment < 255 and i != last:
                     packets.append(0)
             for i, size in enumerate(packets):
                 self.fp.seek(pos, os.SEEK_SET)
-                if self.fp.read(7) == '\x03vorbis':
+                if self.fp.read(7) == b'\x03vorbis':
                     super(OGG, self).decode()
                     comment = True
                 else:
@@ -1740,3 +1737,9 @@ def tagopen(file, readonly=False):
 
 Errors = TaglibError, StructError, IOError, OSError, EOFError
 Decoders = FLAC, M4A, OGG, IFF, MP3
+
+if __name__ == '__main__':
+    tags = tagopen(sys.argv[1])
+    
+    import ipdb; ipdb.set_trace()
+    print(tags)

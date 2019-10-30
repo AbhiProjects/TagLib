@@ -60,7 +60,7 @@ def main(args=None):
                     print
                 except InvalidMedia:
                     pass
-                except Exception, error:
+                except Exception as error:
                     print >> sys.stderr, '%s: %s' % (file, error)
     except KeyboardInterrupt:
         return 2
